@@ -2,30 +2,30 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-@app.route('/bert-summarize', methods=['POST'])
+@app.route('/bart-summarize', methods=['POST'])
 def bert_summarize():    # Nama fungsi diubah menjadi bert_summarize
     data = request.json
     text = data.get('text', '')
     
     # Di sini nanti kita akan memanggil fungsi summarize untuk BERT
-    summary = "Ringkasan BERT akan dihasilkan di sini"
+    summary = "Ringkasan BART akan dihasilkan di sini"
     
     return jsonify({
-        'model': 'BERT',
+        'model': 'BART',
         'input_text': text,
         'summary': summary
     })
 
-@app.route('/mbert-summarize', methods=['POST'])
+@app.route('/mbart-summarize', methods=['POST'])
 def mbert_summarize():    # Nama fungsi diubah menjadi mbert_summarize
     data = request.json
     text = data.get('text', '')
     
     # Di sini nanti kita akan memanggil fungsi summarize untuk MBERT
-    summary = "Ringkasan MBERT akan dihasilkan di sini"
+    summary = "Ringkasan MBART akan dihasilkan di sini"
     
     return jsonify({
-        'model': 'MBERT',
+        'model': 'MBART',
         'input_text': text,
         'summary': summary
     })
