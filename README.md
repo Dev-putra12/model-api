@@ -2,9 +2,9 @@
  model api with flask
 
 section generate summary pada mbart
-        <!-- # Generate summary
+        # Generate summary
         with torch.no_grad():
-            # Opsi 1: Menggunakan beam search dengan diversity
+            # # Opsi 1: Menggunakan beam search dengan diversity
             # Opsi 1 akan menghasilkan output yang lebih deterministik tapi beragam antar beam groups
             summary_ids = self.model.generate(
                 inputs["input_ids"],
