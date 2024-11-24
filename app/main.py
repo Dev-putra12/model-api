@@ -1,6 +1,13 @@
 from flask import Flask, request, jsonify
-from utils import SummaryGenerator
+from .utils import SummaryGenerator
 import os
+import logging
+from typing import Dict, Any, Union
+
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -23,54 +30,65 @@ def bert_summarize():    # Nama fungsi diubah menjadi bert_summarize
 
 # ----------------------------------------------mbart section----------------------------------------------
 # Initialize model mbart
-mbart_model_path = os.path.join(os.path.dirname(__file__), "model/indonesian-summarizer-mbart")
-mbart_generator = SummaryGenerator()
+model_path = os.path.join(os.path.dirname(__file__), "model", "indonesian-summarizer-mbart")
+generator = SummaryGenerator()
 
+# load model
 with app.app_context():
     """Load model before first request"""
-    success = mbart_generator.load_model(mbart_model_path)
+    logger.info(f"Loading model from: {model_path}")
+    success = generator.load_model(model_path)
     if not success:
+        logger.error("Failed to load model")
         raise RuntimeError("Failed to load model")
-
+    logger.info("Model loaded successfully")
+# health check mbart model
 @app.route('/mbart-health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'model_loaded': mbart_generator.model is not None
+        'model_loaded': generator.model is not None
     })
 
-@app.route('/mbart-summarize', methods=['POST'])
-def summarize():
-    """Endpoint for text summarization"""
-    try:
-        # Get input text from request
-        data = request.get_json()
-        
-        if not data or 'text' not in data:
-            return jsonify({
-                'error': 'No text provided'
-            }), 400
+# evaluation mbart model
 
-        text = data['text']
-        
-        # Generate summary
-        summary = mbart_generator.generate_summary(text)
+# summarize with mbart model
+@app.route("/mbart-summarize", methods=["POST"])
+def summarize() -> tuple[Dict[str, Any], int]:
+    """
+    Endpoint for text summarization
+    
+    Returns:
+        tuple: (response_dict, status_code)
+    """
+    try:
+        data = request.get_json()
+        if not data or "text" not in data:
+            return {"error": "No text provided"}, 400
+
+        text = data["text"]
+        if not isinstance(text, str):
+            return {"error": "Text must be a string"}, 400
+
+        if not text.strip():
+            return {"error": "Text cannot be empty"}, 400
+
+        summary = generator.generate_summary(text)
         
         if summary is None:
-            return jsonify({
-                'error': 'Failed to generate summary'
-            }), 500
+            return {"error": "Failed to generate summary"}, 500
 
-        return jsonify({
-            'original_text': text,
-            'summary': summary
-        })
+        return {"summary": summary}, 200
 
     except Exception as e:
-        return jsonify({
-            'error': str(e)
-        }), 500
+        logger.error(f"Error in summarize endpoint: {str(e)}", exc_info=True)
+        return {"error": str(e)}, 500
+
+@app.errorhandler(Exception)
+def handle_error(error: Exception) -> tuple[Dict[str, str], int]:
+    """Global error handler"""
+    logger.error(f"Unhandled error: {str(error)}", exc_info=True)
+    return {"error": "Internal server error"}, 500
 
 if __name__ == '__main__':
     app.run(debug=True)
