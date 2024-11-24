@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from .utils import SummaryGenerator
+from utils import SummaryGenerator
 import os
 
 app = Flask(__name__)
@@ -26,14 +26,13 @@ def bert_summarize():    # Nama fungsi diubah menjadi bert_summarize
 mbart_model_path = os.path.join(os.path.dirname(__file__), "model/indonesian-summarizer-mbart")
 mbart_generator = SummaryGenerator()
 
-@app.before_first_request
-def load_model():
+with app.app_context():
     """Load model before first request"""
     success = mbart_generator.load_model(mbart_model_path)
     if not success:
         raise RuntimeError("Failed to load model")
 
-@app.route('/health', methods=['GET'])
+@app.route('/mbart-health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
     return jsonify({

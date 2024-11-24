@@ -10,16 +10,13 @@ class SummaryGenerator:
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     def load_model(self, model_path):
-        """Load model and tokenizer"""
         try:
             self.tokenizer = MBart50TokenizerFast.from_pretrained(model_path)
             self.model = MBartForConditionalGeneration.from_pretrained(model_path)
             
-            # Set language
             self.tokenizer.src_lang = "id_ID"
             self.tokenizer.tgt_lang = "id_ID"
             
-            # Move model to GPU if available
             self.model = self.model.to(self.device)
             
             return True
@@ -28,18 +25,14 @@ class SummaryGenerator:
             return False
 
     def generate_summary(self, text):
-        """Generate summary from input text"""
         try:
-            # Tokenize
             inputs = self.tokenizer(text, 
                                   return_tensors="pt", 
                                   max_length=self.max_input_length, 
                                   truncation=True)
             
-            # Move inputs to GPU if available
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-            # Generate summary
             summary_ids = self.model.generate(
                 inputs["input_ids"],
                 num_beams=4,
@@ -49,7 +42,6 @@ class SummaryGenerator:
                 forced_bos_token_id=self.tokenizer.lang_code_to_id["id_ID"]
             )
 
-            # Decode summary
             summary = self.tokenizer.decode(summary_ids[0], skip_special_tokens=True)
             
             return summary
