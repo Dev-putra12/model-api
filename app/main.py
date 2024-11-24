@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from .utils import SummaryGenerator
+from .utils import SummaryGenerator, BartSummaryGenerator
 import os
 import logging
 from typing import Dict, Any, Union
@@ -13,19 +13,51 @@ app = Flask(__name__)
 
 
 # ----------------------------------------------bart section----------------------------------------------
+
+# Initialize model bart
+bart_model_path = os.path.join(os.path.dirname(__file__), "model", "indonesian-summarizer-bart")
+bart_generator = BartSummaryGenerator()
+
+# load model
+with app.app_context():
+    """Load model bart before first request"""
+    logger.info(f"Loading model from: {bart_model_path}")
+    success = bart_generator.load_model(bart_model_path)  # Ubah dari load_bart_model
+    if not success:
+        logger.error("Failed to load model")
+        raise RuntimeError("Failed to load model")
+    logger.info("Model loaded successfully")
+
 @app.route('/bart-summarize', methods=['POST'])
-def bert_summarize():    # Nama fungsi diubah menjadi bert_summarize
-    data = request.json
-    text = data.get('text', '')
+def bart_summarize() -> tuple[Dict[str, Any], int]:  # Ubah nama function
+    """
+    Endpoint for text summarization
     
-    # Di sini nanti kita akan memanggil fungsi summarize untuk BERT
-    summary = "Ringkasan BART akan dihasilkan di sini"
-    
-    return jsonify({
-        'model': 'BART',
-        'input_text': text,
-        'summary': summary
-    })
+    Returns:
+        tuple: (response_dict, status_code)
+    """
+    try:
+        data = request.get_json()
+        if not data or "text" not in data:  # Ubah dari bart_text
+            return {"error": "No text provided"}, 400
+
+        text = data["text"]  # Ubah dari bart_text
+        if not isinstance(text, str):
+            return {"error": "Text must be a string"}, 400
+
+        if not text.strip():
+            return {"error": "Text cannot be empty"}, 400
+
+        summary = bart_generator.generate_summary(text)  # Ubah dari generate_bart_summary
+        
+        if summary is None:
+            return {"error": "Failed to generate summary"}, 500
+
+        return {"summary": summary}, 200
+
+    except Exception as e:
+        logger.error(f"Error in summarize endpoint: {str(e)}", exc_info=True)
+        return {"error": str(e)}, 500
 
 
 # ----------------------------------------------mbart section----------------------------------------------
