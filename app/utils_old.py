@@ -58,7 +58,7 @@ class SummaryGenerator:
 
     def generate_summary(self, text: str) -> Optional[str]:
         """
-        Generate summary from input text with dynamic parameters
+        Generate summary from input text
         
         Args:
             text (str): Input text to summarize
@@ -70,22 +70,6 @@ class SummaryGenerator:
             if not self.model or not self.tokenizer:
                 raise RuntimeError("Model or tokenizer not initialized")
 
-            # Preprocessing text
-            text = text.strip()
-            
-            # Count words in input text
-            word_count = len(text.split())
-            
-            # Calculate dynamic parameters based on input length
-            min_length = min(15, max(5, word_count // 4))  # Minimal 5 kata, maksimal 15 kata
-            max_length = min(150, max(30, word_count // 2))  # Minimal 30 kata, maksimal 150 kata
-            
-            # Adjust repetition penalty based on text length
-            repetition_penalty = 2.5 if word_count > 100 else 1.5
-            
-            # Adjust temperature based on text complexity
-            temperature = 0.8 if word_count > 100 else 0.6
-            
             # Tokenize input
             inputs = self.tokenizer(
                 text, 
@@ -100,49 +84,21 @@ class SummaryGenerator:
 
             # Generate summary
             with torch.no_grad():
-                # Opsi 1: Menggunakan beam search dengan diversity
-                # summary_ids = self.model.generate(
-                #     inputs["input_ids"],
-                #     num_beams=4,
-                #     min_length=min_length,
-                #     max_length=max_length,
-                #     early_stopping=True,
-                #     no_repeat_ngram_size=3,
-                #     length_penalty=1.5,
-                #     num_beam_groups=4,
-                #     diversity_penalty=0.5,
-                #     do_sample=False  # Harus False ketika menggunakan diversity_penalty
-                # )
-
-                # # Opsi 2: Menggunakan sampling (uncommment jika ingin menggunakan ini)
                 summary_ids = self.model.generate(
                     inputs["input_ids"],
                     num_beams=4,
-                    min_length=min_length,
-                    max_length=max_length,
+                    min_length=15,
+                    max_length=150,
                     early_stopping=True,
                     no_repeat_ngram_size=2,
                     length_penalty=2.0,
-                    temperature=temperature,
-                    do_sample=True,
-                    top_k=50,
-                    top_p=0.9,
-                    repetition_penalty=repetition_penalty
+                    temperature=0.7
                 )
 
             # Decode summary
             summary = self.tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-            
-            # Post-processing
-            summary = summary.strip()
-            
-            # Validasi hasil
-            if len(summary.split()) < min_length:
-                logger.warning(f"Generated summary too short: {len(summary.split())} words")
-            
             return summary
             
         except Exception as e:
             logger.error(f"Error generating summary: {str(e)}", exc_info=True)
             return None
-
