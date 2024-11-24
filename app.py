@@ -1,4 +1,6 @@
 from flask import Flask, request, jsonify
+from .utils import SummaryGenerator
+import os
 
 app = Flask(__name__)
 
@@ -15,6 +17,10 @@ def bert_summarize():    # Nama fungsi diubah menjadi bert_summarize
         'input_text': text,
         'summary': summary
     })
+
+# Initialize model mbart
+model_path = os.path.join(os.path.dirname(__file__), "model/indonesian-summarizer-mbart")
+generator = SummaryGenerator()
 
 @app.route('/mbart-summarize', methods=['POST'])
 def mbert_summarize():    # Nama fungsi diubah menjadi mbert_summarize
