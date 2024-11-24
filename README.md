@@ -1,8 +1,8 @@
 # model-api
  model api with flask
 
-<!-- section generate summary pada mbart -->
-        # Generate summary
+section generate summary pada mbart
+        <!-- # Generate summary
         with torch.no_grad():
             # Opsi 1: Menggunakan beam search dengan diversity
             # Opsi 1 akan menghasilkan output yang lebih deterministik tapi beragam antar beam groups
@@ -34,9 +34,10 @@
             #     top_k=50,
             #     top_p=0.9,
             #     repetition_penalty=repetition_penalty
-            # )
+            # ) -->
 
-<!-- Parameter yang bisa diatur dalam function generate summary mbart -->
+# Parameter yang bisa diatur dalam function generate summary mbart
+
 # Untuk hasil yang lebih panjang
 length_penalty=2.0  # > 1.0 mendorong kalimat lebih panjang
 
