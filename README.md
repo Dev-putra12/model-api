@@ -196,7 +196,7 @@ print(eval_response.json()["metrics"])
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/model-api.git
+git clone https://github.com/Dev-putra12/model-api.git
 cd model-api
 ```
 
@@ -207,7 +207,7 @@ pip install -r requirements.txt
 
 3. Run the Flask server
 ```bash
-python app.py
+python run.py
 ```
 
 ## 📝 Notes
