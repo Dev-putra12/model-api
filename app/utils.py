@@ -2,6 +2,15 @@ from transformers import MBart50TokenizerFast, MBartForConditionalGeneration, Au
 import torch
 from typing import Optional
 import logging
+# matriks evaluasi
+from nltk.tokenize import word_tokenize, sent_tokenize
+from nltk.translate.bleu_score import sentence_bleu
+from nltk.corpus import stopwords
+from typing import Dict, List, Tuple
+import numpy as np
+import nltk
+import re
+from collections import Counter
 
 # Setup logging
 logging.basicConfig(
@@ -10,7 +19,209 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Di utils.py, setelah import nltk
+try:
+    nltk.download('punkt')
+    nltk.download('punkt_tab')  # Tambahkan ini
+    nltk.download('stopwords')
+    nltk.download('indonesian')
+except:
+    pass
 
+
+
+# ----------------------------------------------evaluator section----------------------------------------------
+class SummaryEvaluator:
+    def __init__(self):
+        try:
+            self.stopwords = set(stopwords.words('indonesian'))
+        except:
+            nltk.download('stopwords')
+            self.stopwords = set(stopwords.words('indonesian'))
+            
+    def preprocess_text(self, text: str) -> List[str]:
+        """
+        Preprocess text dengan penanganan yang lebih baik
+        """
+        # Lowercase the text
+        text = text.lower()
+        
+        # Standardisasi whitespace
+        text = ' '.join(text.split())
+        
+        # Hapus tanda baca tapi pertahankan beberapa karakter penting
+        text = re.sub(r'[^\w\s\-]', ' ', text)
+        
+        # Hapus angka tapi pertahankan angka yang merupakan bagian dari kata
+        text = re.sub(r'\b\d+\b', ' ', text)
+        
+        # Tokenisasi dengan mempertimbangkan kata majemuk
+        words = word_tokenize(text)
+        
+        # Filter stopwords dan token kosong dengan lebih selektif
+        words = [word for word in words if word and word not in self.stopwords and len(word) > 1]
+        
+        return words
+
+
+    def calculate_precision(self, reference_tokens: List[str], generated_tokens: List[str]) -> float:
+        """
+        Hitung precision score dengan mempertimbangkan frekuensi kata
+        """
+        if not generated_tokens:
+            return 0.0
+        
+        ref_counter = Counter(reference_tokens)
+        gen_counter = Counter(generated_tokens)
+        
+        # Hitung overlap dengan mempertimbangkan frekuensi
+        overlap = sum((ref_counter & gen_counter).values())
+        total = sum(gen_counter.values())
+        
+        return overlap / total if total > 0 else 0.0
+
+    def calculate_recall(self, reference_tokens: List[str], generated_tokens: List[str]) -> float:
+        """
+        Hitung recall score dengan mempertimbangkan frekuensi kata
+        """
+        if not reference_tokens:
+            return 0.0
+        
+        ref_counter = Counter(reference_tokens)
+        gen_counter = Counter(generated_tokens)
+        
+        # Hitung overlap dengan mempertimbangkan frekuensi
+        overlap = sum((ref_counter & gen_counter).values())
+        total = sum(ref_counter.values())
+        
+        return overlap / total if total > 0 else 0.0
+
+    def calculate_bleu(self, reference_tokens: List[str], generated_tokens: List[str]) -> float:
+        """
+        Hitung BLEU score dengan smoothing yang lebih baik
+        """
+        from nltk.translate.bleu_score import SmoothingFunction
+        
+        if not reference_tokens or not generated_tokens:
+            return 0.0
+            
+        # Gunakan method7 (Average of methods 1-4) untuk smoothing yang lebih baik
+        smoothing = SmoothingFunction().method7
+        
+        # Gunakan weights yang lebih seimbang untuk n-gram yang lebih pendek
+        weights = (0.4, 0.3, 0.2, 0.1)  # Memberikan bobot lebih tinggi pada 1-gram dan 2-gram
+        
+        try:
+            return sentence_bleu(
+                [reference_tokens],
+                generated_tokens,
+                weights=weights,
+                smoothing_function=smoothing
+            )
+        except Exception as e:
+            logger.error(f"Error calculating BLEU score: {str(e)}")
+            return 0.0
+
+
+    def evaluate_summary(self, reference_text: str, generated_summary: str) -> Dict[str, float]:
+        """
+        Evaluasi ringkasan dengan penanganan kasus khusus
+        """
+        try:
+            # Validasi input
+            if not reference_text or not generated_summary:
+                return {
+                    'precision': 0.0,
+                    'recall': 0.0,
+                    'f1': 0.0,
+                    'bleu': 0.0
+                }
+
+            # Preprocess kedua teks
+            reference_tokens = self.preprocess_text(reference_text)
+            generated_tokens = self.preprocess_text(generated_summary)
+
+            # Penanganan kasus teks terlalu pendek
+            if len(reference_tokens) < 4 or len(generated_tokens) < 4:
+                logger.warning("Text too short for reliable evaluation")
+                
+            # Hitung metrik
+            precision = self.calculate_precision(reference_tokens, generated_tokens)
+            recall = self.calculate_recall(reference_tokens, generated_tokens)
+            
+            # Hitung F1 score dengan penanganan division by zero
+            if precision + recall == 0:
+                f1 = 0.0
+            else:
+                f1 = 2 * (precision * recall) / (precision + recall)
+            
+            # Hitung BLEU score
+            bleu = self.calculate_bleu(reference_tokens, generated_tokens)
+
+            # Format scores
+            metrics = {
+                'precision': round(precision * 100, 2),
+                'recall': round(recall * 100, 2),
+                'f1': round(f1 * 100, 2),
+                'bleu': round(bleu * 100, 2)
+            }
+
+            return metrics
+
+        except Exception as e:
+            logger.error(f"Error in evaluate_summary: {str(e)}")
+            return {
+                'precision': 0.0,
+                'recall': 0.0,
+                'f1': 0.0,
+                'bleu': 0.0
+            }
+
+
+    def evaluate_multiple_summaries(self, reference_texts: List[str], generated_summaries: List[str]) -> Dict[str, Dict[str, float]]:
+        """
+        Evaluate multiple summaries and provide average and individual scores
+        
+        Args:
+            reference_texts (List[str]): List of reference summaries
+            generated_summaries (List[str]): List of generated summaries
+            
+        Returns:
+            Dict[str, Dict[str, float]]: Dictionary containing average and individual scores
+        """
+        try:
+            if len(reference_texts) != len(generated_summaries):
+                raise ValueError("Number of reference and generated summaries must match")
+
+            individual_scores = []
+            for ref, gen in zip(reference_texts, generated_summaries):
+                scores = self.evaluate_summary(ref, gen)
+                individual_scores.append(scores)
+
+            # Calculate average scores
+            avg_scores = {
+                'precision': round(np.mean([s['precision'] for s in individual_scores]), 2),
+                'recall': round(np.mean([s['recall'] for s in individual_scores]), 2),
+                'f1': round(np.mean([s['f1'] for s in individual_scores]), 2),
+                'bleu': round(np.mean([s['bleu'] for s in individual_scores]), 2)
+            }
+
+            return {
+                'average_scores': avg_scores,
+                'individual_scores': individual_scores
+            }
+
+        except Exception as e:
+            logger.error(f"Error in evaluate_multiple_summaries: {str(e)}", exc_info=True)
+            return {
+                'average_scores': {
+                    'precision': 0.0,
+                    'recall': 0.0,
+                    'f1': 0.0,
+                    'bleu': 0.0
+                },
+                'individual_scores': []
+            }
 # ----------------------------------------------bart section----------------------------------------------
 class BartSummaryGenerator:
     def __init__(self):
@@ -18,6 +229,7 @@ class BartSummaryGenerator:
         self.tokenizer: Optional[AutoTokenizer] = None  # Ubah dari bart_tokenizer
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Ubah dari bart_device
         logger.info(f"Using device for BART: {self.device}")
+        self.evaluator = SummaryEvaluator()
 
     def load_model(self, model_path: str) -> bool:  # Ubah dari load_bart_model
         """
@@ -128,6 +340,8 @@ class BartSummaryGenerator:
             logger.error(f"Error generating BART summary: {str(e)}", exc_info=True)
             return None
 
+    def evaluate_summary(self, reference_text: str, generated_summary: str) -> Dict[str, float]:
+            return self.evaluator.evaluate_summary(reference_text, generated_summary)
 
 # ----------------------------------------------mbart section----------------------------------------------
 class SummaryGenerator:
@@ -136,6 +350,7 @@ class SummaryGenerator:
         self.tokenizer: Optional[MBart50TokenizerFast] = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         logger.info(f"Using device: {self.device}")
+        self.evaluator = SummaryEvaluator()
 
     def load_model(self, model_path: str) -> bool:
         """
@@ -266,3 +481,5 @@ class SummaryGenerator:
             logger.error(f"Error generating summary: {str(e)}", exc_info=True)
             return None
 
+    def evaluate_summary(self, reference_text: str, generated_summary: str) -> Dict[str, float]:
+        return self.evaluator.evaluate_summary(reference_text, generated_summary)

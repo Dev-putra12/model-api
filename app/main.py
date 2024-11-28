@@ -1,16 +1,28 @@
 from flask import Flask, request, jsonify
-from .utils import SummaryGenerator, BartSummaryGenerator
+from .utils import SummaryGenerator, BartSummaryGenerator, SummaryEvaluator
+from flask_cors import CORS
 import os
 import logging
-from typing import Dict, Any, Union
+import nltk
+from typing import Dict, Any, Union, List
 
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+# Di main.py, bagian download NLTK resources
+try:
+    nltk.download('punkt')
+    nltk.download('punkt_tab')  # Tambahkan ini
+    nltk.download('stopwords')
+    nltk.download('indonesian')
+except Exception as e:
+    logger.error(f"Error downloading NLTK resources: {str(e)}")
 
+
+app = Flask(__name__)
+CORS(app)
 
 # ----------------------------------------------bart section----------------------------------------------
 
@@ -116,6 +128,181 @@ def summarize() -> tuple[Dict[str, Any], int]:
         logger.error(f"Error in summarize endpoint: {str(e)}", exc_info=True)
         return {"error": str(e)}, 500
 
+# ------------------------------evaluation section----------------------------------------------
+# Tambahkan endpoint evaluasi untuk BART
+@app.route('/bart-evaluate', methods=['POST'])
+def bart_evaluate() -> tuple[Dict[str, Any], int]:
+    """
+    Endpoint for evaluating BART summary against reference summary
+    
+    Expected JSON input:
+    {
+        "reference_text": "text of reference summary",
+        "generated_summary": "text of generated summary"
+    }
+    
+    Returns:
+        tuple: (response_dict, status_code)
+    """
+    try:
+        data = request.get_json()
+        if not data or "reference_text" not in data or "generated_summary" not in data:
+            return {"error": "Both reference_text and generated_summary must be provided"}, 400
+
+        reference_text = data["reference_text"]
+        generated_summary = data["generated_summary"]
+
+        # Validate inputs
+        if not all(isinstance(text, str) for text in [reference_text, generated_summary]):
+            return {"error": "Both texts must be strings"}, 400
+
+        if not all(text.strip() for text in [reference_text, generated_summary]):
+            return {"error": "Texts cannot be empty"}, 400
+
+        # Get evaluation metrics
+        metrics = bart_generator.evaluate_summary(reference_text, generated_summary)
+        
+        return {
+            "metrics": metrics,
+            "reference_text": reference_text,
+            "generated_summary": generated_summary
+        }, 200
+
+    except Exception as e:
+        logger.error(f"Error in bart_evaluate endpoint: {str(e)}", exc_info=True)
+        return {"error": str(e)}, 500
+
+# Tambahkan endpoint evaluasi untuk mBART
+@app.route('/mbart-evaluate', methods=['POST'])
+def mbart_evaluate() -> tuple[Dict[str, Any], int]:
+    """
+    Endpoint for evaluating mBART summary against reference summary
+    
+    Expected JSON input:
+    {
+        "reference_text": "text of reference summary",
+        "generated_summary": "text of generated summary"
+    }
+    
+    Returns:
+        tuple: (response_dict, status_code)
+    """
+    try:
+        data = request.get_json()
+        if not data or "reference_text" not in data or "generated_summary" not in data:
+            return {"error": "Both reference_text and generated_summary must be provided"}, 400
+
+        reference_text = data["reference_text"]
+        generated_summary = data["generated_summary"]
+
+        # Validate inputs
+        if not all(isinstance(text, str) for text in [reference_text, generated_summary]):
+            return {"error": "Both texts must be strings"}, 400
+
+        if not all(text.strip() for text in [reference_text, generated_summary]):
+            return {"error": "Texts cannot be empty"}, 400
+
+        # Get evaluation metrics
+        metrics = generator.evaluate_summary(reference_text, generated_summary)
+        
+        return {
+            "metrics": metrics,
+            "reference_text": reference_text,
+            "generated_summary": generated_summary
+        }, 200
+
+    except Exception as e:
+        logger.error(f"Error in mbart_evaluate endpoint: {str(e)}", exc_info=True)
+        return {"error": str(e)}, 500
+
+# Tambahkan endpoint untuk evaluasi batch/multiple summaries
+@app.route('/bart-evaluate-batch', methods=['POST'])
+def bart_evaluate_batch() -> tuple[Dict[str, Any], int]:
+    """
+    Endpoint for evaluating multiple BART summaries
+    
+    Expected JSON input:
+    {
+        "reference_texts": ["reference1", "reference2", ...],
+        "generated_summaries": ["summary1", "summary2", ...]
+    }
+    
+    Returns:
+        tuple: (response_dict, status_code)
+    """
+    try:
+        data = request.get_json()
+        if not data or "reference_texts" not in data or "generated_summaries" not in data:
+            return {"error": "Both reference_texts and generated_summaries must be provided"}, 400
+
+        reference_texts = data["reference_texts"]
+        generated_summaries = data["generated_summaries"]
+
+        # Validate inputs
+        if not isinstance(reference_texts, list) or not isinstance(generated_summaries, list):
+            return {"error": "Both inputs must be lists"}, 400
+
+        if len(reference_texts) != len(generated_summaries):
+            return {"error": "Number of reference and generated summaries must match"}, 400
+
+        # Get evaluation metrics
+        results = bart_generator.evaluator.evaluate_multiple_summaries(
+            reference_texts, 
+            generated_summaries
+        )
+        
+        return {
+            "results": results
+        }, 200
+
+    except Exception as e:
+        logger.error(f"Error in bart_evaluate_batch endpoint: {str(e)}", exc_info=True)
+        return {"error": str(e)}, 500
+
+# Tambahkan endpoint untuk evaluasi batch/multiple summaries mBART
+@app.route('/mbart-evaluate-batch', methods=['POST'])
+def mbart_evaluate_batch() -> tuple[Dict[str, Any], int]:
+    """
+    Endpoint for evaluating multiple mBART summaries
+    
+    Expected JSON input:
+    {
+        "reference_texts": ["reference1", "reference2", ...],
+        "generated_summaries": ["summary1", "summary2", ...]
+    }
+    
+    Returns:
+        tuple: (response_dict, status_code)
+    """
+    try:
+        data = request.get_json()
+        if not data or "reference_texts" not in data or "generated_summaries" not in data:
+            return {"error": "Both reference_texts and generated_summaries must be provided"}, 400
+
+        reference_texts = data["reference_texts"]
+        generated_summaries = data["generated_summaries"]
+
+        # Validate inputs
+        if not isinstance(reference_texts, list) or not isinstance(generated_summaries, list):
+            return {"error": "Both inputs must be lists"}, 400
+
+        if len(reference_texts) != len(generated_summaries):
+            return {"error": "Number of reference and generated summaries must match"}, 400
+
+        # Get evaluation metrics
+        results = generator.evaluator.evaluate_multiple_summaries(
+            reference_texts, 
+            generated_summaries
+        )
+        
+        return {
+            "results": results
+        }, 200
+
+    except Exception as e:
+        logger.error(f"Error in mbart_evaluate_batch endpoint: {str(e)}", exc_info=True)
+        return {"error": str(e)}, 500
+# end
 @app.errorhandler(Exception)
 def handle_error(error: Exception) -> tuple[Dict[str, str], int]:
     """Global error handler"""
