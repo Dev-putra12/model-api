@@ -163,9 +163,9 @@ def bart_evaluate() -> tuple[Dict[str, Any], int]:
         metrics = bart_generator.evaluate_summary(reference_text, generated_summary)
         
         return {
-            "metrics": metrics,
-            "reference_text": reference_text,
-            "generated_summary": generated_summary
+            "metrics": metrics
+            # "reference_text": reference_text,
+            # "generated_summary": generated_summary
         }, 200
 
     except Exception as e:
@@ -206,9 +206,9 @@ def mbart_evaluate() -> tuple[Dict[str, Any], int]:
         metrics = generator.evaluate_summary(reference_text, generated_summary)
         
         return {
-            "metrics": metrics,
-            "reference_text": reference_text,
-            "generated_summary": generated_summary
+            "metrics": metrics
+            # "reference_text": reference_text,
+            # "generated_summary": generated_summary
         }, 200
 
     except Exception as e:
