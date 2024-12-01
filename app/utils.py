@@ -225,13 +225,13 @@ class SummaryEvaluator:
 # ----------------------------------------------bart section----------------------------------------------
 class BartSummaryGenerator:
     def __init__(self):
-        self.model: Optional[AutoModelForSeq2SeqLM] = None  # Ubah dari bart_model
-        self.tokenizer: Optional[AutoTokenizer] = None  # Ubah dari bart_tokenizer
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Ubah dari bart_device
+        self.model: Optional[AutoModelForSeq2SeqLM] = None
+        self.tokenizer: Optional[AutoTokenizer] = None
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         logger.info(f"Using device for BART: {self.device}")
         self.evaluator = SummaryEvaluator()
 
-    def load_model(self, model_path: str) -> bool:  # Ubah dari load_bart_model
+    def load_model(self, model_path: str) -> bool:
         """
         Load the BART model and tokenizer from the specified path
         
@@ -265,7 +265,7 @@ class BartSummaryGenerator:
             logger.error(f"Error loading BART model: {str(e)}", exc_info=True)
             return False
 
-    def generate_summary(self, text: str) -> Optional[str]:  # Ubah dari generate_bart_summary
+    def generate_summary(self, text: str) -> Optional[str]: 
         """
         Generate summary from input text with dynamic parameters using BART
         
